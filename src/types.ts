@@ -43,6 +43,8 @@ export interface Session {
   memberIds: string[]
   archived: boolean
   createdAt: number
+  /** 封存後重新開啟的時間；催記錄的計時會從這裡重新起算 */
+  resumedAt?: number
 }
 
 export interface Entry {
@@ -80,4 +82,22 @@ export interface Settings {
   currentMemberId: string | null
   lastDrinkId: string | null
   lastVesselId: string | null
+  /** 催記錄：總開關 */
+  nagEnabled: boolean
+  /** 催記錄：手機通知 */
+  nagNotify: boolean
+  /** 催記錄：震動 */
+  nagVibrate: boolean
+  /** 催記錄：閃手電筒 */
+  nagTorch: boolean
+  /** 催記錄：中毒畫面 */
+  nagOverlay: boolean
+  /** 太久沒記錄自動結束活動 */
+  nagAutoEnd: boolean
+  /** 多久沒記錄就催一次（分鐘） */
+  nagIntervalMin: number
+  /** 只在活動開始後幾小時內催 */
+  nagWindowHours: number
+  /** 多久沒記錄就自動結束活動（分鐘） */
+  nagAutoEndMin: number
 }

@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { addEntry, repeatLast, undoLast } from '../actions'
-import { updateSettings } from '../db'
+import { db, updateSettings } from '../db'
 import { useData } from '../store'
 import { CATEGORY_LABELS } from '../data/seed'
 import { dayStart, pureGrams, toStd } from '../lib/calc'
-import { drinkLabel, fmt, fmtVol, fromLocalInput, toLocalInput } from '../lib/format'
+import { drinkLabel, fmt, fmtDate, fmtDuration, fmtVol, fromLocalInput, toLocalInput, uid } from '../lib/format'
+import { sessionStart } from '../lib/nag'
 import type { Drink, DrinkCategory, Vessel } from '../types'
-import { DrinkIcon, Field, MemberChips, Modal, NumField, toast } from '../components/ui'
+import { confirmDialog, DrinkIcon, Field, MemberChips, Modal, NumField, toast } from '../components/ui'
 import { MemberEditor } from '../components/MemberEditor'
 import { MemberSummary, useNow } from '../components/MemberSummary'
 import { EntryList } from '../components/EntryList'
@@ -96,6 +97,19 @@ export function RecordPage() {
     toast(e ? `已復原：${who} ${e.drinkName} × ${fmt(e.count, 1)}` : '沒有可以復原的紀錄')
   }
 
+  const startSession = async () => {
+    const date = fmtDate(Date.now())
+    await db.sessions.add({ id: uid(), name: `${date} 喝起來`, date, memberIds: members.map((m) => m.id), archived: false, createdAt: Date.now() })
+    toast('活動開始！名稱可以到「場次」頁修改')
+  }
+  const endSession = async () => {
+    if (!activeSession) return
+    if (await confirmDialog(`結束「${activeSession.name}」？結束後會封存，可以在「場次」頁回顧或重新開啟。`, { confirmText: '結束活動' })) {
+      await db.sessions.update(activeSession.id, { archived: true })
+      toast('活動已結束並封存')
+    }
+  }
+
   const today = dayStart(now)
   const recent = entries
     .filter((e) => e.time >= today || (activeSession && e.sessionId === activeSession.id))
@@ -105,9 +119,22 @@ export function RecordPage() {
     <div className="page">
       <div className="page-head">
         <h1>記錄</h1>
-        <span className={'session-pill' + (activeSession ? ' on' : '')}>
-          {activeSession ? `🎉 ${activeSession.name}` : '個人紀錄（無進行中場次）'}
+      </div>
+
+      <div className={'session-bar' + (activeSession ? ' on' : '')}>
+        <span className="session-bar-text">
+          <b>{activeSession ? `🎉 ${activeSession.name}` : '目前沒有進行中的活動'}</b>
+          <span>
+            {activeSession
+              ? `活動進行中・已 ${fmtDuration((now - sessionStart(activeSession)) / 3600000)}`
+              : '現在記錄的會算個人紀錄'}
+          </span>
         </span>
+        {activeSession ? (
+          <button className="btn" onClick={endSession}>結束活動</button>
+        ) : (
+          <button className="btn primary" onClick={startSession}>開始活動</button>
+        )}
       </div>
 
       <MemberChips

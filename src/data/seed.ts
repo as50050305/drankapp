@@ -130,7 +130,33 @@ export const DEFAULT_SETTINGS: Settings = {
   currentMemberId: null,
   lastDrinkId: 'd-tb-gold',
   lastVesselId: 'v-taipi143',
+  nagEnabled: true,
+  nagNotify: true,
+  nagVibrate: true,
+  nagTorch: true,
+  nagOverlay: true,
+  nagAutoEnd: true,
+  nagIntervalMin: 10,
+  nagWindowHours: 4,
+  nagAutoEndMin: 60,
 }
+
+/** 太久沒記錄時的催促訊息，會亂序輪流出現。想換台詞改這裡。 */
+export const NAG_MESSAGES = [
+  '欸操 這麼久不登記 不會是杯底養金魚吧?',
+  '開車不喝酒 喝酒不囉嗦 真想囉嗦 先登記再囉嗦?',
+  '欸幹 自己一個人喝哦 敢不敢先登記再喝阿?',
+  '你都喝三杯了 才登記一杯 確定不是在躲酒?',
+  '今朝有酒今朝醉 再不登記 給我去沙發上睡?',
+  '你要去催人家酒前 有沒有想過我在這邊催你登記?',
+  '好了啦 別打鏢算分數了 能不能讓我算你杯數?',
+  '別叫讓你喝醉的人對你負責 你要不要登記一下對我負責?',
+  '每次都喝完就睡覺 你不登記 我也會想辦法不讓你睡覺。',
+  '喝酒前啞巴 喝酒後喇叭 你再不登記 你就樹蛙懶爬。',
+]
+
+/** 超過自動結束時間都沒記錄時的最後一句話 */
+export const NAG_FINAL_MESSAGE = '看樣子你是喝多了 廢物 還想要用我來登記杯數阿'
 
 export const MEMBER_COLORS = [
   '#f5a524', '#ef4444', '#3b82f6', '#22c55e', '#a855f7', '#ec4899',

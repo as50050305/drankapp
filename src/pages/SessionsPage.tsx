@@ -93,7 +93,7 @@ function SessionDetail({ session, onBack }: { session: Session; onBack: () => vo
   const all = totals(list, settings)
 
   const archive = async () => {
-    await db.sessions.update(session.id, { archived: !session.archived })
+    await db.sessions.update(session.id, session.archived ? { archived: false, resumedAt: Date.now() } : { archived: true })
     toast(session.archived ? '已重新開啟場次' : '已封存，可在「已封存」回顧')
   }
   const remove = async () => {

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { exportBackup, importBackup, resetCatalog, resetParams, updateSettings, validateBackup, wipeAll } from '../db'
 import { useData } from '../store'
 import { buildCsv, saveTextFile } from '../lib/exporter'
@@ -6,6 +7,9 @@ import { fmtDate } from '../lib/format'
 import type { Member, Settings } from '../types'
 import { Avatar, BacWarning, confirmDialog, Field, NumField, Segmented, toast } from '../components/ui'
 import { MemberEditor } from '../components/MemberEditor'
+import { testNag } from '../components/NagController'
+import { NAG_MESSAGES } from '../data/seed'
+import { testNotification } from '../lib/nagNative'
 
 export function SettingsPage() {
   const data = useData()
@@ -61,6 +65,12 @@ export function SettingsPage() {
       await resetCatalog()
       toast('已重設酒款與杯具')
     }
+  }
+  const doTestNag = async () => {
+    testNag()
+    if (!settings.nagNotify) return
+    const ok = await testNotification(NAG_MESSAGES[Math.floor(Math.random() * NAG_MESSAGES.length)], settings)
+    if (!ok && Capacitor.isNativePlatform()) toast('通知權限沒有開，請到手機的系統設定允許「喝多少」顯示通知')
   }
   const doResetParams = async () => {
     if (await confirmDialog('把計算參數還原成預設值？')) {
@@ -143,6 +153,35 @@ export function SettingsPage() {
         <button className="btn ghost" onClick={doResetParams}>↺ 所有參數還原預設值</button>
       </div>
 
+      <h2>催記錄提醒</h2>
+      <div className="card">
+        <p className="muted">
+          活動開始後 {settings.nagWindowHours} 小時內，只要 {settings.nagIntervalMin} 分鐘沒有人登記就會催一次，台詞亂序出現。每一項都可以單獨關掉。
+        </p>
+        <Toggle label="啟用催記錄" checked={settings.nagEnabled} onChange={(v) => set({ nagEnabled: v })} />
+        {settings.nagEnabled && (
+          <>
+            <Toggle label="手機通知" hint="App 在背景或螢幕關閉時也會跳出" checked={settings.nagNotify} onChange={(v) => set({ nagNotify: v })} />
+            <Toggle label="震動" checked={settings.nagVibrate} onChange={(v) => set({ nagVibrate: v })} />
+            <Toggle label="閃手電筒" hint="只有 App 開在畫面上時才會閃" checked={settings.nagTorch} onChange={(v) => set({ nagTorch: v })} />
+            <Toggle label="中毒畫面" hint="只有 App 開在畫面上時才會出現；畫面會閃爍" checked={settings.nagOverlay} onChange={(v) => set({ nagOverlay: v })} />
+            <Toggle label="太久沒登記自動結束活動" checked={settings.nagAutoEnd} onChange={(v) => set({ nagAutoEnd: v })} />
+            <div className="grid3">
+              <Field label="每幾分鐘催">
+                <NumField value={settings.nagIntervalMin} onChange={num('nagIntervalMin')} ariaLabel="催記錄間隔" min={1} />
+              </Field>
+              <Field label="開始後幾小時內">
+                <NumField value={settings.nagWindowHours} onChange={num('nagWindowHours')} ariaLabel="催記錄時段" />
+              </Field>
+              <Field label="幾分鐘後結束">
+                <NumField value={settings.nagAutoEndMin} onChange={num('nagAutoEndMin')} ariaLabel="自動結束時間" min={1} />
+              </Field>
+            </div>
+            <button className="btn" onClick={doTestNag}>🧪 測試一下（畫面、震動、手電筒，5 秒後跳通知）</button>
+          </>
+        )}
+      </div>
+
       <h2>資料管理</h2>
       <div className="card stack">
         <p className="muted">所有資料只存在這支手機，不會上傳。換手機或重裝前請先匯出備份。</p>
@@ -154,9 +193,21 @@ export function SettingsPage() {
         <button className="btn danger" onClick={doWipe}>🗑️ 清除全部資料</button>
       </div>
 
-      <p className="muted about">喝多少 v1.0.0・資料僅存於本機・理性飲酒，未成年請勿飲酒</p>
+      <p className="muted about">喝多少 v1.1.0・資料僅存於本機・理性飲酒，未成年請勿飲酒</p>
 
       {editing && <MemberEditor member={editing === 'new' ? null : editing} existingCount={members.length} onClose={() => setEditing(null)} />}
     </div>
+  )
+}
+
+function Toggle(props: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="switch-row">
+      <span>
+        {props.label}
+        {props.hint && <small className="switch-hint">{props.hint}</small>}
+      </span>
+      <input type="checkbox" role="switch" aria-label={props.label} checked={props.checked} onChange={(e) => props.onChange(e.target.checked)} />
+    </label>
   )
 }

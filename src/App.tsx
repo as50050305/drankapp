@@ -4,6 +4,7 @@ import { App as CapApp } from '@capacitor/app'
 import { ensureSeed } from './db'
 import { DataProvider } from './store'
 import { handleBack, OverlayHost } from './components/ui'
+import { NagController } from './components/NagController'
 import { RecordPage } from './pages/RecordPage'
 import { SessionsPage } from './pages/SessionsPage'
 import { StatsPage } from './pages/StatsPage'
@@ -69,6 +70,7 @@ export default function App() {
         ))}
       </nav>
       <OverlayHost />
+      <NagController onGoRecord={() => setTab('record')} />
     </DataProvider>
   )
 }
