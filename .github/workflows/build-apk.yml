@@ -1,0 +1,62 @@
+name: 打包 Android APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: 安裝套件
+        run: npm ci
+
+      - name: 單元測試（純酒精與 BAC 計算）
+        run: npm test
+
+      - name: 建置網頁並同步到 Android 專案
+        run: |
+          npm run build
+          npx cap sync android
+
+      - name: 打包 debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: 重新命名 APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk drankapp-debug.apk
+
+      - name: 上傳 APK（Actions 頁面的 Artifacts）
+        uses: actions/upload-artifact@v4
+        with:
+          name: drankapp-debug-apk
+          path: drankapp-debug.apk
+
+      - name: 發佈到 Releases（方便手機直接下載）
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: 最新版 APK
+          body: 由 GitHub Actions 自動打包（${{ github.sha }}）。下載 drankapp-debug.apk 到手機安裝即可。
+          files: drankapp-debug.apk
+          make_latest: true
