@@ -53,10 +53,15 @@ jobs:
       - name: 發佈到 Releases（方便手機直接下載）
         if: github.event_name != 'pull_request'
         continue-on-error: true
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: latest
-          name: 最新版 APK
-          body: 由 GitHub Actions 自動打包（${{ github.sha }}）。下載 drankapp-debug.apk 到手機安裝即可。
-          files: drankapp-debug.apk
-          make_latest: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          BUILT=$(TZ=Asia/Taipei date '+%Y-%m-%d %H:%M')
+          # 每次都刪掉舊的再重建，Releases 頁面的日期、版本與 commit 才會跟著更新
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest drankapp-debug.apk \
+            --target "$GITHUB_SHA" \
+            --title "最新版 APK v${VERSION}（${BUILT} 打包）" \
+            --notes "由 GitHub Actions 自動打包（${GITHUB_SHA}）。下載 drankapp-debug.apk 到手機安裝即可。" \
+            --latest
