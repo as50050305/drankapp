@@ -234,3 +234,9 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .switch-row > span { flex: 1; min-width: 0; padding-right: 12px; }
 .switch-hint { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
 .switch-row input { flex: none; }
+
+.notify-status { display: flex; flex-direction: column; gap: 8px; padding: 12px; margin: 4px 0 8px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); }
+.notify-status p { margin: 0; }
+.notify-alert { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.notify-alert span { flex: 1; }
+.notify-alert .btn { flex: none; min-height: 44px; background: #fff; color: #4a1717; border-color: transparent; }

@@ -86,7 +86,10 @@ export function NagController({ onGoRecord }: { onGoRecord: () => void }) {
     }
     const timer = setInterval(tick, TICK)
     const onVisible = () => {
-      if (document.visibilityState === 'visible') void tick()
+      if (document.visibilityState !== 'visible') return
+      void tick()
+      // 從系統設定回來時權限可能剛被打開，重排一次通知
+      void syncNotifications(planRef.current, settingsRef.current)
     }
     document.addEventListener('visibilitychange', onVisible)
     fireTest = () => trigger({ kind: 'test', message: NAG_MESSAGES[Math.floor(Math.random() * NAG_MESSAGES.length)] })

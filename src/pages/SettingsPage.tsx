@@ -9,13 +9,16 @@ import { Avatar, BacWarning, confirmDialog, Field, NumField, Segmented, toast } 
 import { MemberEditor } from '../components/MemberEditor'
 import { testNag } from '../components/NagController'
 import { NAG_MESSAGES } from '../data/seed'
-import { testNotification } from '../lib/nagNative'
+import { openAppDetails, openExactAlarmSettings, openNotificationSettings, testNotification } from '../lib/nagNative'
+import { useNagStatus } from '../components/useNagStatus'
+import { fmtTime } from '../lib/format'
 
 export function SettingsPage() {
   const data = useData()
   const { members, settings } = data
   const [editing, setEditing] = useState<Member | 'new' | null>(null)
   const importRef = useRef<HTMLInputElement>(null)
+  const nagStatus = useNagStatus()
 
   const set = (patch: Partial<Settings>) => updateSettings(patch)
   const num = (key: keyof Settings) => (v: number | null) => {
@@ -162,6 +165,33 @@ export function SettingsPage() {
         {settings.nagEnabled && (
           <>
             <Toggle label="手機通知" hint="App 在背景或螢幕關閉時也會跳出" checked={settings.nagNotify} onChange={(v) => set({ nagNotify: v })} />
+            {settings.nagNotify && nagStatus && !nagStatus.native && (
+              <p className="muted">系統通知只有安裝在手機上的 App 才有，瀏覽器裡不會跳。</p>
+            )}
+            {settings.nagNotify && nagStatus?.native && (
+              <div className="notify-status">
+                <p>
+                  {nagStatus.canNotify ? '✅ 通知權限：已允許' : '❌ 通知權限：沒有開，通知不會出現'}
+                </p>
+                {!nagStatus.exact && <p>⚠️ 準時提醒：未允許，通知可能會晚幾分鐘才跳</p>}
+                <p className="muted">
+                  {nagStatus.nextAt
+                    ? `已排好 ${nagStatus.pending} 則通知，下一則 ${fmtTime(nagStatus.nextAt)}`
+                    : '目前沒有排定的通知（要有進行中的活動才會排）'}
+                </p>
+                {nagStatus.lastError && <p className="muted">上次排程失敗：{nagStatus.lastError}</p>}
+                <button className={'btn' + (nagStatus.canNotify ? '' : ' primary')} onClick={() => void openNotificationSettings()}>
+                  🔔 {nagStatus.canNotify ? '開啟系統的通知設定' : '開啟通知'}
+                </button>
+                {!nagStatus.exact && (
+                  <button className="btn" onClick={() => void openExactAlarmSettings()}>⏰ 允許準時提醒</button>
+                )}
+                <button className="btn" onClick={() => void openAppDetails()}>🔋 開啟 App 資訊（把電池設為不受限制）</button>
+                <p className="muted">
+                  通知還是沒跳的話：在 App 資訊頁把「電池」改成「不受限制」，並確認通知類別「催記錄」沒有被關掉或設成靜音。
+                </p>
+              </div>
+            )}
             <Toggle label="震動" checked={settings.nagVibrate} onChange={(v) => set({ nagVibrate: v })} />
             <Toggle label="閃手電筒" hint="只有 App 開在畫面上時才會閃" checked={settings.nagTorch} onChange={(v) => set({ nagTorch: v })} />
             <Toggle label="中毒畫面" hint="只有 App 開在畫面上時才會出現；畫面會閃爍" checked={settings.nagOverlay} onChange={(v) => set({ nagOverlay: v })} />
@@ -193,7 +223,7 @@ export function SettingsPage() {
         <button className="btn danger" onClick={doWipe}>🗑️ 清除全部資料</button>
       </div>
 
-      <p className="muted about">喝多少 v1.1.0・資料僅存於本機・理性飲酒，未成年請勿飲酒</p>
+      <p className="muted about">喝多少 v1.2.0・資料僅存於本機・理性飲酒，未成年請勿飲酒</p>
 
       {editing && <MemberEditor member={editing === 'new' ? null : editing} existingCount={members.length} onClose={() => setEditing(null)} />}
     </div>

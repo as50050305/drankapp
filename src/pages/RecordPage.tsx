@@ -6,14 +6,17 @@ import { CATEGORY_LABELS } from '../data/seed'
 import { dayStart, pureGrams, toStd } from '../lib/calc'
 import { drinkLabel, fmt, fmtDate, fmtDuration, fmtVol, fromLocalInput, toLocalInput, uid } from '../lib/format'
 import { sessionStart } from '../lib/nag'
-import type { Drink, DrinkCategory, Vessel } from '../types'
+import type { Drink, DrinkCategory, Entry, Vessel } from '../types'
+import { openNotificationSettings } from '../lib/nagNative'
+import { useNagStatus } from '../components/useNagStatus'
 import { confirmDialog, DrinkIcon, Field, MemberChips, Modal, NumField, toast } from '../components/ui'
 import { MemberEditor } from '../components/MemberEditor'
 import { MemberSummary, useNow } from '../components/MemberSummary'
 import { EntryList } from '../components/EntryList'
 
 export function RecordPage() {
-  const { members, drinks, vessels, entries, settings, activeSession } = useData()
+  const { members, drinks, vessels, entries, sessions, settings, activeSession } = useData()
+  const nagStatus = useNagStatus()
   const now = useNow()
   const member = members.find((m) => m.id === settings.currentMemberId) ?? members[0] ?? null
   const [drinkId, setDrinkId] = useState(settings.lastDrinkId)
@@ -111,9 +114,15 @@ export function RecordPage() {
   }
 
   const today = dayStart(now)
-  const recent = entries
-    .filter((e) => e.time >= today || (activeSession && e.sessionId === activeSession.id))
-    .slice(0, 40)
+  // 已封存活動的紀錄不留在這一頁，要看或修改請到「場次」頁
+  const archivedIds = new Set(sessions.filter((x) => x.archived).map((x) => x.id))
+  const visible = (e: Entry) =>
+    activeSession && e.sessionId === activeSession.id
+      ? true
+      : e.time >= today && !(e.sessionId && archivedIds.has(e.sessionId))
+  const recent = entries.filter(visible).slice(0, 40)
+  const hiddenToday = entries.filter((e) => e.time >= today && e.sessionId && archivedIds.has(e.sessionId)).length
+  const notifyBlocked = !!nagStatus?.native && !nagStatus.canNotify && settings.nagEnabled && settings.nagNotify && !!activeSession
 
   return (
     <div className="page">
@@ -136,6 +145,13 @@ export function RecordPage() {
           <button className="btn primary" onClick={startSession}>開始活動</button>
         )}
       </div>
+
+      {notifyBlocked && (
+        <div className="alert notify-alert" role="alert">
+          <span>🔕 通知沒有開，太久沒登記時不會跳通知。</span>
+          <button className="btn" onClick={() => void openNotificationSettings()}>開啟通知</button>
+        </div>
+      )}
 
       <MemberChips
         members={members}
@@ -210,7 +226,12 @@ export function RecordPage() {
       </div>
 
       <h2>{activeSession ? '本場次與今日紀錄' : '今日紀錄'}</h2>
-      <EntryList entries={recent} empty="今天還沒有人喝，乾杯吧！" />
+      <EntryList entries={recent} empty={hiddenToday ? '目前沒有紀錄' : '今天還沒有人喝，乾杯吧！'} />
+      {hiddenToday > 0 && (
+        <p className="muted" style={{ textAlign: 'center', marginTop: 10 }}>
+          今天另有 {hiddenToday} 筆在已封存的活動裡，可到「場次」頁查看或修改。
+        </p>
+      )}
 
       {picker === 'drink' && <DrinkPicker drinks={drinks} current={drink?.id ?? null} onPick={pickDrink} onClose={() => setPicker(null)} />}
       {picker === 'vessel' && (
