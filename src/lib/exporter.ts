@@ -59,3 +59,38 @@ export function buildCsv(entries: Entry[], members: Member[], sessions: Session[
   // 加上 BOM，Excel 才會正確顯示中文
   return '﻿' + [head.join(','), ...rows].join('\r\n')
 }
+
+/** 分享一張圖片（PNG data URL）。手機上開啟分享選單；瀏覽器直接下載 */
+export async function shareImage(filename: string, dataUrl: string, text: string): Promise<void> {
+  if (Capacitor.isNativePlatform()) {
+    const res = await Filesystem.writeFile({ path: filename, data: dataUrl.split(',')[1], directory: Directory.Cache })
+    await Share.share({ title: filename, text, files: [res.uri], dialogTitle: '分享給朋友' })
+    return
+  }
+  const a = document.createElement('a')
+  a.href = dataUrl
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+}
+
+/** 分享文字。回傳 'copied' 表示沒有分享選單、已改為複製到剪貼簿 */
+export async function shareText(text: string, title = '喝多少'): Promise<'shared' | 'copied'> {
+  if (Capacitor.isNativePlatform()) {
+    await Share.share({ title, text, dialogTitle: '分享給朋友' })
+    return 'shared'
+  }
+  if (navigator.share) {
+    await navigator.share({ title, text })
+    return 'shared'
+  }
+  await navigator.clipboard.writeText(text)
+  return 'copied'
+}
+
+/** 使用者自己關掉分享選單不算錯誤 */
+export function isShareCancel(e: unknown): boolean {
+  const m = String((e as Error)?.message ?? e).toLowerCase()
+  return m.includes('cancel') || m.includes('abort')
+}

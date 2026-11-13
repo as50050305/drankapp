@@ -240,3 +240,8 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .notify-alert { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
 .notify-alert span { flex: 1; }
 .notify-alert .btn { flex: none; min-height: 44px; background: #fff; color: #4a1717; border-color: transparent; }
+
+.share-btn { width: 100%; margin-top: 12px; }
+.share-preview { display: block; width: 100%; border-radius: 14px; border: 1px solid var(--line); }
+.update-box { display: flex; flex-direction: column; gap: 10px; }
+.update-box p { margin: 0; }

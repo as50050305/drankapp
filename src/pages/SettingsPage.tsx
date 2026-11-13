@@ -11,7 +11,9 @@ import { testNag } from '../components/NagController'
 import { NAG_MESSAGES } from '../data/seed'
 import { openAppDetails, openExactAlarmSettings, openNotificationSettings, testNotification } from '../lib/nagNative'
 import { useNagStatus } from '../components/useNagStatus'
-import { fmtTime } from '../lib/format'
+import { fmtDateTime, fmtTime } from '../lib/format'
+import { APP_VERSION, BUILD_TIME, checkForUpdate, openExternal, RELEASES_URL, type UpdateInfo } from '../lib/update'
+import { isShareCancel, shareText } from '../lib/exporter'
 
 export function SettingsPage() {
   const data = useData()
@@ -19,6 +21,28 @@ export function SettingsPage() {
   const [editing, setEditing] = useState<Member | 'new' | null>(null)
   const importRef = useRef<HTMLInputElement>(null)
   const nagStatus = useNagStatus()
+  const [update, setUpdate] = useState<UpdateInfo | 'checking' | null>(null)
+  const [updateError, setUpdateError] = useState<string | null>(null)
+
+  const doCheckUpdate = async () => {
+    setUpdate('checking')
+    setUpdateError(null)
+    try {
+      setUpdate(await checkForUpdate())
+    } catch (e) {
+      setUpdate(null)
+      const m = (e as Error).message || ''
+      setUpdateError(/failed to fetch|network|load failed/i.test(m) ? '連不上 GitHub，請確認手機有網路' : m)
+    }
+  }
+  const doShareApp = async () => {
+    try {
+      const r = await shareText(`一起用「喝多少」記錄每個人喝了多少純酒精 🍻\nAndroid 安裝檔下載：${RELEASES_URL}`)
+      if (r === 'copied') toast('已複製下載連結')
+    } catch (e) {
+      if (!isShareCancel(e)) toast('分享失敗')
+    }
+  }
 
   const set = (patch: Partial<Settings>) => updateSettings(patch)
   const num = (key: keyof Settings) => (v: number | null) => {
@@ -72,7 +96,7 @@ export function SettingsPage() {
   const doTestNag = async () => {
     testNag()
     if (!settings.nagNotify) return
-    const ok = await testNotification(NAG_MESSAGES[Math.floor(Math.random() * NAG_MESSAGES.length)], settings)
+    const ok = await testNotification(NAG_MESSAGES.notify[Math.floor(Math.random() * NAG_MESSAGES.notify.length)], settings)
     if (!ok && Capacitor.isNativePlatform()) toast('通知權限沒有開，請到手機的系統設定允許「喝多少」顯示通知')
   }
   const doResetParams = async () => {
@@ -223,7 +247,29 @@ export function SettingsPage() {
         <button className="btn danger" onClick={doWipe}>🗑️ 清除全部資料</button>
       </div>
 
-      <p className="muted about">喝多少 v1.2.0・資料僅存於本機・理性飲酒，未成年請勿飲酒</p>
+      <h2>版本與更新</h2>
+      <div className="card update-box">
+        <p>目前版本 <b>v{APP_VERSION}</b><span className="muted">　{fmtDateTime(BUILD_TIME)} 打包</span></p>
+        <button className="btn" disabled={update === 'checking'} onClick={doCheckUpdate}>
+          {update === 'checking' ? '檢查中…' : '🔄 檢查更新'}
+        </button>
+        {updateError && <p className="alert">{updateError}</p>}
+        {update && update !== 'checking' && !update.hasUpdate && <p>✅ 已經是最新版</p>}
+        {update && update !== 'checking' && update.hasUpdate && (
+          <>
+            <p>
+              🎉 有新版本{update.latestVersion ? ` v${update.latestVersion}` : ''}
+              {update.publishedAt ? `（${fmtDateTime(update.publishedAt)} 打包）` : ''}
+            </p>
+            <button className="btn primary" onClick={() => void openExternal(update.apkUrl)}>⬇️ 下載新版</button>
+            <p className="muted">會用瀏覽器下載安裝檔，下載完點一下「開啟」再按「更新」。資料會保留。</p>
+          </>
+        )}
+        <button className="btn ghost" onClick={doShareApp}>📲 分享 App 下載連結給朋友</button>
+        <p className="muted">檢查更新時才會連網到 GitHub，其他時候 App 不會連網。</p>
+      </div>
+
+      <p className="muted about">喝多少 v{APP_VERSION}・資料僅存於本機・理性飲酒，未成年請勿飲酒</p>
 
       {editing && <MemberEditor member={editing === 'new' ? null : editing} existingCount={members.length} onClose={() => setEditing(null)} />}
     </div>

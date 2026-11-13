@@ -8,6 +8,10 @@ import { fmt, fmtDate, fmtTime, fmtVol, uid } from '../lib/format'
 import type { Entry, Member, Session } from '../types'
 import { Avatar, confirmDialog, Field, Modal, toast, useBackHandler } from '../components/ui'
 import { EntryList } from '../components/EntryList'
+import { isShareCancel, shareImage, shareText } from '../lib/exporter'
+import { buildShareText, drawShareCard, type RankRow } from '../lib/shareCard'
+import type { Totals } from '../lib/calc'
+import type { Settings } from '../types'
 
 export function SessionsPage() {
   const { sessions, entries } = useData()
@@ -83,7 +87,8 @@ function SessionEditor({ session, onClose }: { session: Session | null; onClose:
 function SessionDetail({ session, onBack }: { session: Session; onBack: () => void }) {
   const { members, entries, settings } = useData()
   const [editing, setEditing] = useState(false)
-  useBackHandler(onBack, !editing)
+  const [sharing, setSharing] = useState(false)
+  useBackHandler(onBack, !editing && !sharing)
   const list = entries.filter((e) => e.sessionId === session.id)
   const ids = Array.from(new Set([...session.memberIds, ...list.map((e) => e.memberId)]))
   const people = ids.map((id) => members.find((m) => m.id === id)).filter((m): m is Member => !!m)
@@ -112,6 +117,8 @@ function SessionDetail({ session, onBack }: { session: Session; onBack: () => vo
       </div>
       <h1>{session.archived ? '📦' : '🎉'} {session.name}</h1>
       <p className="muted">{session.date}・{people.length} 人・全場共 {fmt(all.grams, 1)} g 純酒精・{fmt(all.std, 1)} 標準杯・{fmtVol(all.ml, settings)}</p>
+
+      <button className="btn primary share-btn" onClick={() => setSharing(true)}>📤 分享戰報給朋友</button>
 
       <h2>排名</h2>
       <div className="card">
@@ -178,7 +185,36 @@ function SessionDetail({ session, onBack }: { session: Session; onBack: () => vo
         <button className="btn primary grow" onClick={archive}>{session.archived ? '重新開啟場次' : '結束並封存'}</button>
       </div>
       {editing && <SessionEditor session={session} onClose={() => setEditing(false)} />}
+      {sharing && <ShareModal session={session} ranking={ranking} all={all} settings={settings} onClose={() => setSharing(false)} />}
     </div>
+  )
+}
+
+function ShareModal(props: { session: Session; ranking: RankRow[]; all: Totals; settings: Settings; onClose: () => void }) {
+  const { session, ranking, all, settings } = props
+  const [img] = useState(() => drawShareCard(session, ranking, all, settings))
+  const text = buildShareText(session, ranking, all, settings)
+  const run = async (fn: () => Promise<unknown>) => {
+    try {
+      const r = await fn()
+      if (r === 'copied') toast('已複製到剪貼簿，可以貼給朋友')
+    } catch (e) {
+      if (!isShareCancel(e)) toast('分享失敗：' + ((e as Error).message || '請再試一次'))
+    }
+  }
+  return (
+    <Modal
+      title="分享戰報"
+      onClose={props.onClose}
+      footer={
+        <div className="row">
+          <button className="btn grow" onClick={() => run(() => shareText(text, session.name))}>💬 分享文字</button>
+          <button className="btn primary grow" onClick={() => run(() => shareImage(`喝多少-${session.date}.png`, img, text))}>🖼️ 分享圖片</button>
+        </div>
+      }
+    >
+      <img className="share-preview" src={img} alt={text} />
+    </Modal>
   )
 }
 

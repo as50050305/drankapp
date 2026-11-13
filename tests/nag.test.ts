@@ -56,17 +56,48 @@ describe('催記錄時間表', () => {
   })
 })
 
+describe('台詞分類', () => {
+  it('共 30 句：通知 25 句、中毒畫面 27 句，各自不重複', () => {
+    expect(NAG_MESSAGES.notify.length).toBe(25)
+    expect(NAG_MESSAGES.overlay.length).toBe(27)
+    expect(new Set([...NAG_MESSAGES.notify, ...NAG_MESSAGES.overlay]).size).toBe(30)
+  })
+  it('「系統偵測」口吻只出現在中毒畫面；抱怨沒開 App 的只出現在通知', () => {
+    expect(NAG_MESSAGES.notify.some((m) => m.includes('偵測'))).toBe(false)
+    expect(NAG_MESSAGES.overlay.some((m) => m.includes('開一下APP'))).toBe(false)
+    const p = buildPlan(session(), [], S, NAG_MESSAGES)!
+    for (const n of p.nags) {
+      expect(NAG_MESSAGES.notify).toContain(n.message)
+      expect(NAG_MESSAGES.overlay).toContain(n.overlayMessage)
+    }
+  })
+})
+
+describe('自動結束的計時起點', () => {
+  it('以「最後一次登記」為準：每登記一次就往後延 60 分鐘', () => {
+    const e1 = entry(T0 + 50 * MIN)
+    expect(buildPlan(session(), [e1], S, NAG_MESSAGES)!.endAt).toBe(T0 + 110 * MIN)
+    const e2 = entry(T0 + 105 * MIN)
+    expect(buildPlan(session(), [e1, e2], S, NAG_MESSAGES)!.endAt).toBe(T0 + 165 * MIN)
+  })
+  it('以按下登記的時間為準，不是手動填的喝酒時間', () => {
+    const e = { ...entry(T0 + 30 * MIN), time: T0 - 300 * MIN }
+    expect(buildPlan(session(), [e], S, NAG_MESSAGES)!.endAt).toBe(T0 + 90 * MIN)
+  })
+})
+
 describe('台詞亂序', () => {
-  it('10 句都會出現一輪才重複，且不會連續兩次同一句', () => {
+  it('每一句都出現過一輪才重複，且不會連續兩次同一句', () => {
     for (let k = 0; k < 50; k++) {
-      const out = shuffledCycle(NAG_MESSAGES, 24)
-      expect(new Set(out.slice(0, 10)).size).toBe(10)
-      expect(new Set(out.slice(10, 20)).size).toBe(10)
+      const out = shuffledCycle(NAG_MESSAGES.notify, 60)
+      const n = NAG_MESSAGES.notify.length
+      expect(new Set(out.slice(0, n)).size).toBe(n)
+      expect(new Set(out.slice(n, 2 * n)).size).toBe(n)
       for (let i = 1; i < out.length; i++) expect(out[i]).not.toBe(out[i - 1])
     }
   })
   it('每次順序不同', () => {
-    const orders = new Set(Array.from({ length: 20 }, () => shuffledCycle(NAG_MESSAGES, 10).join('|')))
+    const orders = new Set(Array.from({ length: 20 }, () => shuffledCycle(NAG_MESSAGES.notify, 10).join('|')))
     expect(orders.size).toBeGreaterThan(10)
   })
 })

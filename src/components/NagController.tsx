@@ -80,7 +80,7 @@ export function NagController({ onGoRecord }: { onGoRecord: () => void }) {
         shownRef.current = due
         // App 剛從背景回來時不補跳（通知已經提醒過了）
         if (wasRunning && document.visibilityState === 'visible') {
-          trigger({ kind: 'nag', message: plan.nags[due - 1].message })
+          trigger({ kind: 'nag', message: plan.nags[due - 1].overlayMessage })
         }
       }
     }
@@ -92,7 +92,7 @@ export function NagController({ onGoRecord }: { onGoRecord: () => void }) {
       void syncNotifications(planRef.current, settingsRef.current)
     }
     document.addEventListener('visibilitychange', onVisible)
-    fireTest = () => trigger({ kind: 'test', message: NAG_MESSAGES[Math.floor(Math.random() * NAG_MESSAGES.length)] })
+    fireTest = () => trigger({ kind: 'test', message: NAG_MESSAGES.overlay[Math.floor(Math.random() * NAG_MESSAGES.overlay.length)] })
     return () => {
       clearInterval(timer)
       document.removeEventListener('visibilitychange', onVisible)

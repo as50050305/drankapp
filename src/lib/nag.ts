@@ -4,8 +4,8 @@ export interface NagPlan {
   sessionId: string
   /** 計時起點：最後一次記錄（或活動開始）的時間 */
   lastActivity: number
-  /** 每一次催促的時間與台詞 */
-  nags: Array<{ at: number; message: string }>
+  /** 每一次催促的時間，以及手機通知、中毒畫面各自的台詞 */
+  nags: Array<{ at: number; message: string; overlayMessage: string }>
   /** 自動結束活動的時間；null 表示不自動結束 */
   endAt: number | null
 }
@@ -53,7 +53,7 @@ export function buildPlan(
   session: Session,
   entries: Entry[],
   s: NagSettings,
-  messages: string[],
+  messages: { notify: string[]; overlay: string[] },
   rng: () => number = Math.random,
 ): NagPlan | null {
   if (!s.nagEnabled || session.archived) return null
@@ -66,8 +66,14 @@ export function buildPlan(
   for (let t = last + interval; t <= windowEnd && (endAt == null || t < endAt) && times.length < 60; t += interval) {
     times.push(t)
   }
-  const texts = shuffledCycle(messages, times.length, rng)
-  return { sessionId: session.id, lastActivity: last, nags: times.map((at, i) => ({ at, message: texts[i] })), endAt }
+  const notify = shuffledCycle(messages.notify, times.length, rng)
+  const overlay = shuffledCycle(messages.overlay, times.length, rng)
+  return {
+    sessionId: session.id,
+    lastActivity: last,
+    nags: times.map((at, i) => ({ at, message: notify[i], overlayMessage: overlay[i] })),
+    endAt,
+  }
 }
 
 /** 到 now 為止已經到期的催促次數 */
