@@ -6,6 +6,7 @@ import { CATEGORY_LABELS } from '../data/seed'
 import { dayStart, pureGrams, toStd } from '../lib/calc'
 import { drinkLabel, fmt, fmtDate, fmtDuration, fmtVol, fromLocalInput, toLocalInput, uid } from '../lib/format'
 import { sessionStart } from '../lib/nag'
+import { groupVessels } from '../lib/vesselGroups'
 import type { Drink, DrinkCategory, Entry, Vessel } from '../types'
 import { openNotificationSettings } from '../lib/nagNative'
 import { useNagStatus } from '../components/useNagStatus'
@@ -234,19 +235,7 @@ export function RecordPage() {
       )}
 
       {picker === 'drink' && <DrinkPicker drinks={drinks} current={drink?.id ?? null} onPick={pickDrink} onClose={() => setPicker(null)} />}
-      {picker === 'vessel' && (
-        <Modal title="選擇杯具" onClose={() => setPicker(null)}>
-          <div className="tile-grid">
-            {vessels.map((v) => (
-              <button key={v.id} className={'tile' + (v.id === vessel?.id ? ' on' : '')} onClick={() => pickVessel(v)}>
-                <span className="tile-emoji">{v.emoji}</span>
-                <b>{v.name}</b>
-                <span>{fmtVol(v.ml, settings)}</span>
-              </button>
-            ))}
-          </div>
-        </Modal>
-      )}
+      {picker === 'vessel' && <VesselPicker current={vessel?.id ?? null} onPick={pickVessel} onClose={() => setPicker(null)} />}
       {addingMember && <MemberEditor member={null} existingCount={members.length} onClose={() => setAddingMember(false)} />}
     </div>
   )
@@ -273,6 +262,57 @@ function DrinkPicker(props: { drinks: Drink[]; current: string | null; onPick: (
           </button>
         ))}
       </div>
+    </Modal>
+  )
+}
+
+/** 選杯具：依分組顯示，每一組可以收合；收合狀態會記住 */
+function VesselPicker(props: { current: string | null; onPick: (v: Vessel) => void; onClose: () => void }) {
+  const { vessels, settings } = useData()
+  const groups = groupVessels(vessels)
+  const currentGroup = groups.find((g) => g.items.some((v) => v.id === props.current))?.name
+  // 目前選中的杯具所在的分組，打開時一定是展開的
+  const [collapsed, setCollapsed] = useState(() => settings.collapsedVesselGroups.filter((g) => g !== currentGroup))
+  const toggle = (name: string) => {
+    const next = collapsed.includes(name) ? collapsed.filter((g) => g !== name) : [...collapsed, name]
+    setCollapsed(next)
+    void updateSettings({ collapsedVesselGroups: next })
+  }
+  const setAll = (close: boolean) => {
+    const next = close ? groups.map((g) => g.name) : []
+    setCollapsed(next)
+    void updateSettings({ collapsedVesselGroups: next })
+  }
+  const allClosed = groups.every((g) => collapsed.includes(g.name))
+  return (
+    <Modal title="選擇杯具" onClose={props.onClose}>
+      <div className="fold-tools">
+        <button className="link-btn" onClick={() => setAll(!allClosed)}>{allClosed ? '全部展開' : '全部收合'}</button>
+      </div>
+      {groups.map((g) => {
+        const open = !collapsed.includes(g.name)
+        return (
+          <section key={g.name} className="fold">
+            <button className="fold-head" aria-expanded={open} onClick={() => toggle(g.name)}>
+              <span className="fold-arrow">{open ? '▾' : '▸'}</span>
+              <b>{g.name}</b>
+              <span className="muted">{g.items.length} 個{g.name === currentGroup ? '・目前選這組' : ''}</span>
+            </button>
+            {open && (
+              <div className="tile-grid">
+                {g.items.map((v) => (
+                  <button key={v.id} className={'tile' + (v.id === props.current ? ' on' : '')} onClick={() => props.onPick(v)}>
+                    <span className="tile-emoji">{v.emoji}</span>
+                    <b>{v.name}</b>
+                    <span>{fmtVol(v.ml, settings)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )
+      })}
+      <p className="muted" style={{ marginTop: 14 }}>要調整順序或分組，請到「酒款與杯具 → 杯具」。</p>
     </Modal>
   )
 }

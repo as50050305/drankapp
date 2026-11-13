@@ -33,6 +33,8 @@ export interface Vessel {
   ml: number
   emoji: string
   order: number
+  /** 分組名稱（例如「啤酒杯」）；舊資料沒有這個欄位時會依預設值歸類 */
+  group?: string
 }
 
 export interface Session {
@@ -82,6 +84,8 @@ export interface Settings {
   currentMemberId: string | null
   lastDrinkId: string | null
   lastVesselId: string | null
+  /** 選杯具時收合起來的分組 */
+  collapsedVesselGroups: string[]
   /** 催記錄：總開關 */
   nagEnabled: boolean
   /** 催記錄：手機通知 */

@@ -5,6 +5,7 @@ import { CATEGORY_EMOJI, CATEGORY_LABELS } from '../data/seed'
 import { compressImage } from '../lib/image'
 import { drinkLabel, fmt, fmtVol, uid } from '../lib/format'
 import type { Drink, DrinkCategory, Vessel } from '../types'
+import { DEFAULT_GROUP, groupOf, groupVessels, moveGroup, moveVessel } from '../lib/vesselGroups'
 import { confirmDialog, DrinkIcon, Field, Modal, NumField, Segmented, toast } from '../components/ui'
 
 const CATS = Object.keys(CATEGORY_LABELS) as DrinkCategory[]
@@ -14,6 +15,9 @@ export function CatalogPage() {
   const [tab, setTab] = useState<'drinks' | 'vessels'>('drinks')
   const [drink, setDrink] = useState<Drink | 'new' | null>(null)
   const [vessel, setVessel] = useState<Vessel | 'new' | null>(null)
+  const [reorder, setReorder] = useState(false)
+  const groups = groupVessels(vessels)
+  const saveOrder = (next: Vessel[]) => db.vessels.bulkPut(next)
 
   return (
     <div className="page">
@@ -42,15 +46,45 @@ export function CatalogPage() {
         ))}
 
       {tab === 'vessels' && (
-        <div className="list" style={{ marginTop: 16 }}>
-          {vessels.map((v) => (
-            <button key={v.id} className="list-item" onClick={() => setVessel(v)}>
-              <span className="drink-emoji" style={{ width: 40, height: 40, fontSize: 24 }}>{v.emoji}</span>
-              <span className="grow">{v.name}</span>
-              <b>{fmtVol(v.ml, settings)}</b>
-            </button>
+        <>
+          <button className={'btn reorder-toggle' + (reorder ? ' primary' : '')} aria-pressed={reorder} onClick={() => setReorder((v) => !v)}>
+            {reorder ? '✓ 完成排序' : '↕ 調整順序'}
+          </button>
+          {groups.map((g, gi) => (
+            <section key={g.name}>
+              <div className="group-head">
+                <h2>{g.name}</h2>
+                {reorder && (
+                  <span className="move-btns">
+                    <button aria-label={`${g.name} 整組上移`} disabled={gi === 0} onClick={() => saveOrder(moveGroup(vessels, g.name, -1))}>▲</button>
+                    <button aria-label={`${g.name} 整組下移`} disabled={gi === groups.length - 1} onClick={() => saveOrder(moveGroup(vessels, g.name, 1))}>▼</button>
+                  </span>
+                )}
+              </div>
+              <div className="list">
+                {g.items.map((v, vi) =>
+                  reorder ? (
+                    <div key={v.id} className="list-item">
+                      <span className="drink-emoji" style={{ width: 40, height: 40, fontSize: 24 }}>{v.emoji}</span>
+                      <span className="grow">{v.name}<small className="switch-hint">{fmtVol(v.ml, settings)}</small></span>
+                      <span className="move-btns">
+                        <button aria-label={`${v.name} 上移`} disabled={vi === 0} onClick={() => saveOrder(moveVessel(vessels, v.id, -1))}>▲</button>
+                        <button aria-label={`${v.name} 下移`} disabled={vi === g.items.length - 1} onClick={() => saveOrder(moveVessel(vessels, v.id, 1))}>▼</button>
+                      </span>
+                    </div>
+                  ) : (
+                    <button key={v.id} className="list-item" onClick={() => setVessel(v)}>
+                      <span className="drink-emoji" style={{ width: 40, height: 40, fontSize: 24 }}>{v.emoji}</span>
+                      <span className="grow">{v.name}</span>
+                      <b>{fmtVol(v.ml, settings)}</b>
+                    </button>
+                  ),
+                )}
+              </div>
+            </section>
           ))}
-        </div>
+          {reorder && <p className="muted" style={{ marginTop: 12 }}>杯具只能在自己的分組裡上下移；要換到別組，按「完成排序」後點杯具修改「分組」。</p>}
+        </>
       )}
       <p className="muted" style={{ marginTop: 16 }}>點一下就能修改或刪除。想整批還原成預設值，請到「設定 → 資料管理」。</p>
 
@@ -155,10 +189,12 @@ function VesselEditor({ vessel, onClose }: { vessel: Vessel | null; onClose: () 
   const [name, setName] = useState(vessel?.name ?? '')
   const [ml, setMl] = useState<number | null>(vessel?.ml ?? null)
   const [emoji, setEmoji] = useState(vessel?.emoji ?? '🥃')
+  const groupNames = groupVessels(vessels).map((g) => g.name)
+  const [group, setGroup] = useState(vessel ? groupOf(vessel) : groupNames[0] ?? DEFAULT_GROUP)
   const save = async () => {
     if (!name.trim()) return toast('請輸入名稱')
     if (!ml) return toast('請輸入容量')
-    const data = { name: name.trim(), ml, emoji: emoji.trim() || '🥛' }
+    const data = { name: name.trim(), ml, emoji: emoji.trim() || '🥛', group: group.trim() || DEFAULT_GROUP }
     if (vessel) await db.vessels.update(vessel.id, data)
     else await db.vessels.add({ id: uid(), ...data, order: Math.max(0, ...vessels.map((v) => v.order)) + 1 })
     onClose()
@@ -192,6 +228,14 @@ function VesselEditor({ vessel, onClose }: { vessel: Vessel | null; onClose: () 
           <input className="input" aria-label="圖示" value={emoji} maxLength={4} onChange={(e) => setEmoji(e.target.value)} />
         </Field>
       </div>
+      <Field label="分組" hint="點選現有分組，或直接輸入新的分組名稱">
+        <div className="chips wrap">
+          {groupNames.map((g) => (
+            <button key={g} className={'chip' + (g === group.trim() ? ' on' : '')} onClick={() => setGroup(g)}>{g}</button>
+          ))}
+        </div>
+        <input className="input" aria-label="分組" value={group} maxLength={12} onChange={(e) => setGroup(e.target.value)} placeholder="例如：啤酒杯" />
+      </Field>
     </Modal>
   )
 }

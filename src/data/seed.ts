@@ -27,32 +27,32 @@ export const CATEGORY_EMOJI: Record<DrinkCategory, string> = {
   other: '🍹',
 }
 
-type V = [id: string, name: string, ml: number, emoji: string]
+type V = [id: string, name: string, ml: number, emoji: string, group: string]
 const vessels: V[] = [
   // 台灣酒吧的 shot 多以 1 oz ≈ 30 ml 計，double 為 60 ml
-  ['v-shot30', 'Shot 杯（1 oz）', 30, '🥃'],
-  ['v-shot45', 'Shot 杯（1.5 oz）', 45, '🥃'],
-  ['v-shot50', 'Shot 杯（50）', 50, '🥃'],
-  ['v-shot60', 'Double shot', 60, '🥃'],
-  ['v-kaoliang', '高粱小酒杯', 15, '🏺'],
-  ['v-whisky', '威士忌杯（單份）', 45, '🥃'],
-  ['v-sake90', '清酒杯', 90, '🍶'],
-  ['v-sake180', '清酒一合', 180, '🍶'],
-  ['v-wine150', '紅酒杯', 150, '🍷'],
-  ['v-flute120', '香檳杯', 120, '🥂'],
+  ['v-shot30', 'Shot 杯（1 oz）', 30, '🥃', '烈酒杯'],
+  ['v-shot45', 'Shot 杯（1.5 oz）', 45, '🥃', '烈酒杯'],
+  ['v-shot50', 'Shot 杯（50）', 50, '🥃', '烈酒杯'],
+  ['v-shot60', 'Double shot', 60, '🥃', '烈酒杯'],
+  ['v-kaoliang', '高粱小酒杯', 15, '🏺', '烈酒杯'],
+  ['v-whisky', '威士忌杯（單份）', 45, '🥃', '烈酒杯'],
+  ['v-sake90', '清酒杯', 90, '🍶', '清酒杯'],
+  ['v-sake180', '清酒一合', 180, '🍶', '清酒杯'],
+  ['v-wine150', '紅酒杯', 150, '🍷', '葡萄酒杯'],
+  ['v-flute120', '香檳杯', 120, '🥂', '葡萄酒杯'],
   // 熱炒店常見的台啤杯，容量約 143 ml
-  ['v-taipi143', '台啤杯（熱炒店）', 143, '🍺'],
-  ['v-beer250', '啤酒杯（小）', 250, '🍺'],
-  ['v-draft300', '生啤杯', 300, '🍺'],
-  ['v-can330', '罐裝 330', 330, '🥫'],
-  ['v-can350', '罐裝 350', 350, '🥫'],
-  ['v-pint473', 'Pint（美式）', 473, '🍺'],
-  ['v-can500', '罐裝 500', 500, '🥫'],
-  ['v-pint568', 'Pint（英式）', 568, '🍺'],
-  ['v-bottle600', '玻璃瓶 600', 600, '🍾'],
-  ['v-stein1000', '大杯 Stein', 1000, '🍻'],
-  ['v-short90', '調酒杯（短飲）', 90, '🍸'],
-  ['v-highball300', '調酒杯（長飲 Highball）', 300, '🍹'],
+  ['v-taipi143', '台啤杯（熱炒店）', 143, '🍺', '啤酒杯'],
+  ['v-beer250', '啤酒杯（小）', 250, '🍺', '啤酒杯'],
+  ['v-draft300', '生啤杯', 300, '🍺', '啤酒杯'],
+  ['v-can330', '罐裝 330', 330, '🥫', '啤酒杯'],
+  ['v-can350', '罐裝 350', 350, '🥫', '啤酒杯'],
+  ['v-pint473', 'Pint（美式）', 473, '🍺', '啤酒杯'],
+  ['v-can500', '罐裝 500', 500, '🥫', '啤酒杯'],
+  ['v-pint568', 'Pint（英式）', 568, '🍺', '啤酒杯'],
+  ['v-bottle600', '玻璃瓶 600', 600, '🍾', '啤酒杯'],
+  ['v-stein1000', '大杯 Stein', 1000, '🍻', '啤酒杯'],
+  ['v-short90', '調酒杯（短飲）', 90, '🍸', '調酒杯'],
+  ['v-highball300', '調酒杯（長飲 Highball）', 300, '🍹', '調酒杯'],
 ]
 
 type D = [id: string, category: DrinkCategory, brand: string, name: string, abv: number, vessel: string, emoji?: string]
@@ -99,8 +99,11 @@ const drinks: D[] = [
 ]
 
 export function seedVessels(): Vessel[] {
-  return vessels.map(([id, name, ml, emoji], i) => ({ id, name, ml, emoji, order: i }))
+  return vessels.map(([id, name, ml, emoji, group], i) => ({ id, name, ml, emoji, order: i, group }))
 }
+
+/** 預設杯具的分組；讓舊版本留下來、還沒有分組欄位的杯具也能正確歸類 */
+export const SEED_VESSEL_GROUPS: Record<string, string> = Object.fromEntries(vessels.map((v) => [v[0], v[4]]))
 
 export function seedDrinks(): Drink[] {
   return drinks.map(([id, category, brand, name, abv, vessel, emoji], i) => ({
@@ -130,6 +133,7 @@ export const DEFAULT_SETTINGS: Settings = {
   currentMemberId: null,
   lastDrinkId: 'd-tb-gold',
   lastVesselId: 'v-taipi143',
+  collapsedVesselGroups: [],
   nagEnabled: true,
   nagNotify: true,
   nagVibrate: true,
