@@ -49,3 +49,56 @@ export function moveGroup(vessels: Vessel[], name: string, dir: -1 | 1): Vessel[
   if (i >= 0) swap(groups, i, i + dir)
   return flatten(groups)
 }
+
+/* ---------- 拖曳排序用：把分組標題和杯具攤平成一列一列 ---------- */
+
+export type SortRow = { kind: 'group'; key: string; name: string } | { kind: 'vessel'; key: string; vessel: Vessel }
+
+export function toRows(vessels: Vessel[]): SortRow[] {
+  return groupVessels(vessels).flatMap((g): SortRow[] => [
+    { kind: 'group', key: 'g:' + g.name, name: g.name },
+    ...g.items.map((v): SortRow => ({ kind: 'vessel', key: 'v:' + v.id, vessel: v })),
+  ])
+}
+
+/** 把排好的列轉回杯具清單：杯具屬於它上方最近的那個分組標題，順序重新編號 */
+export function rowsToVessels(rows: SortRow[]): Vessel[] {
+  const out: Vessel[] = []
+  let group = DEFAULT_GROUP
+  for (const r of rows) {
+    if (r.kind === 'group') group = r.name
+    else out.push({ ...r.vessel, group, order: out.length })
+  }
+  return out
+}
+
+/** 一個分組在列表中佔的範圍 [標題位置, 最後一個杯具的位置] */
+export function blockRange(rows: SortRow[], headerIndex: number): [number, number] {
+  let end = headerIndex
+  while (end + 1 < rows.length && rows[end + 1].kind === 'vessel') end++
+  return [headerIndex, end]
+}
+
+/** 把一個杯具往上或往下移一列（可以越過分組標題換到別組，但不能排到第一個標題上面） */
+export function moveRow(rows: SortRow[], index: number, dir: -1 | 1): SortRow[] {
+  const j = index + dir
+  if (rows[index]?.kind !== 'vessel' || j < 1 || j >= rows.length) return rows
+  const next = [...rows]
+  ;[next[index], next[j]] = [next[j], next[index]]
+  return next
+}
+
+/** 把整個分組（標題＋底下的杯具）跟上一組或下一組對調 */
+export function moveBlock(rows: SortRow[], headerIndex: number, dir: -1 | 1): SortRow[] {
+  if (rows[headerIndex]?.kind !== 'group') return rows
+  const [a0, a1] = blockRange(rows, headerIndex)
+  if (dir === 1) {
+    if (a1 + 1 >= rows.length) return rows
+    const [, b1] = blockRange(rows, a1 + 1)
+    return [...rows.slice(0, a0), ...rows.slice(a1 + 1, b1 + 1), ...rows.slice(a0, a1 + 1), ...rows.slice(b1 + 1)]
+  }
+  if (a0 === 0) return rows
+  let b0 = a0 - 1
+  while (b0 > 0 && rows[b0].kind !== 'group') b0--
+  return [...rows.slice(0, b0), ...rows.slice(a0, a1 + 1), ...rows.slice(b0, a0), ...rows.slice(a1 + 1)]
+}

@@ -37,3 +37,48 @@ describe('杯具分組與排序', () => {
     expect(beer.items[beer.items.length - 1].id).toBe('x')
   })
 })
+
+import { blockRange, moveBlock, moveRow, rowsToVessels, toRows } from '../src/lib/vesselGroups'
+
+describe('拖曳排序的列操作', () => {
+  const rows = () => toRows(seedVessels())
+  const keys = (r: ReturnType<typeof rows>) => r.map((x) => x.key)
+  it('攤平成 5 個標題 + 22 個杯具，轉回去內容不變', () => {
+    const r = rows()
+    expect(r.length).toBe(27)
+    expect(r[0].key).toBe('g:烈酒杯')
+    expect(rowsToVessels(r).map((v) => [v.id, v.group, v.order])).toEqual(seedVessels().map((v) => [v.id, v.group, v.order]))
+  })
+  it('杯具拖過分組標題就換到那一組', () => {
+    // 烈酒杯最後一個（威士忌杯，位置 6）往下越過「清酒杯」標題（位置 7）
+    const r = moveRow(rows(), 6, 1)
+    expect(keys(r).slice(6, 9)).toEqual(['g:清酒杯', 'v:v-whisky', 'v:v-sake90'])
+    const v = rowsToVessels(r).find((x) => x.id === 'v-whisky')!
+    expect(v.group).toBe('清酒杯')
+    expect(groupVessels(rowsToVessels(r)).map((g) => `${g.name}:${g.items.length}`)).toEqual(['烈酒杯:5', '清酒杯:3', '葡萄酒杯:2', '啤酒杯:10', '調酒杯:2'])
+  })
+  it('杯具不能排到第一個標題上面，也不能超出最後', () => {
+    const r = rows()
+    expect(moveRow(r, 1, -1)).toBe(r)
+    expect(moveRow(r, r.length - 1, 1)).toBe(r)
+  })
+  it('整組對調：標題和底下的杯具一起移動', () => {
+    const r = rows()
+    expect(blockRange(r, 0)).toEqual([0, 6])
+    const down = moveBlock(r, 0, 1)
+    expect(keys(down).slice(0, 4)).toEqual(['g:清酒杯', 'v:v-sake90', 'v:v-sake180', 'g:烈酒杯'])
+    expect(keys(moveBlock(down, 3, -1))).toEqual(keys(r))
+    expect(moveBlock(r, 0, -1)).toBe(r)
+    const last = r.findIndex((x) => x.key === 'g:調酒杯')
+    expect(moveBlock(r, last, 1)).toBe(r)
+    expect(rowsToVessels(down).length).toBe(22)
+  })
+  it('被拖空的分組存檔後自然消失', () => {
+    let r = rows()
+    // 把清酒杯兩個都往上拖進烈酒杯
+    r = moveRow(r, 8, -1) // sake90 越過標題
+    r = moveRow(r, 9, -1)
+    r = moveRow(r, 8, -1) // sake180 越過標題
+    expect(groupVessels(rowsToVessels(r)).map((g) => g.name)).toEqual(['烈酒杯', '葡萄酒杯', '啤酒杯', '調酒杯'])
+  })
+})
